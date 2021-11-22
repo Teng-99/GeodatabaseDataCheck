@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include<fstream>
+#include<string.h>
 #include"SHAPEFIL.h"
 using namespace std;
 //快速排斥实验
@@ -16,15 +17,9 @@ bool cross(double x1, double y1, double x2, double y2, double x3, double y3, dou
     return ((x1 - x3) * (y4 - y3) - (y1 - y3) * (x3 - x4)) * ((x2 - x3) * (y4 - y3) - (y2 - y3) * (x4 - x3)) < 0 && ((x3 - x1) * (y2 - y1) - (y3 - y1) * (x2 - x1)) * ((x4 - x1) * (y2 - y1) - (y4 - y1) * (x2 - x1)) < 0;
 }
 
-
-
-int main()
-{
-    _SHAPEFILE_H_INCLUDED::SHPHandle SHP = SHPOpen(".\\data\\2021testdata","rb");
-    //DBFHandle DBF = DBFOpen(".\\data\\2021testdata", "rb");
-    //cout.precision(12);
+void checkGeoData(SHPHandle SHP, double threshold) {
     int n = 0;
-    double threshold = 5.0;
+
     if (SHP)
     {
         int nRecord = SHP->nRecords;
@@ -32,7 +27,7 @@ int main()
         {
             SHPObject* obj = SHPReadObject(SHP, i);
             int nVertices = obj->nVertices;
-            if ((obj->padfX[0] - obj->padfX[nVertices - 1]) > threshold||(obj->padfY[0] - obj->padfY[nVertices - 1]))
+            if ((obj->padfX[0] - obj->padfX[nVertices - 1]) > threshold || (obj->padfY[0] - obj->padfY[nVertices - 1]))
             {
                 cout << i << "首尾不相接" << endl;
                 n++;
@@ -42,20 +37,17 @@ int main()
             {
                 if (j <= 2)
                     continue;
-                for (int s = 0; s < j-1; s++) {
+                for (int s = 0; s < j - 1; s++) {
                     if (IsIntersec(obj->padfX[s], obj->padfY[s], obj->padfX[s + 1], obj->padfY[s + 1], obj->padfX[j], obj->padfY[j], obj->padfX[j - 1], obj->padfY[j - 1]))
                         continue;
                     if (cross(obj->padfX[s], obj->padfY[s], obj->padfX[s + 1], obj->padfY[s + 1], obj->padfX[j], obj->padfY[j], obj->padfX[j - 1], obj->padfY[j - 1]))
                     {
-                        cout << "多边形" << i << "出现线段相交冲突,位于线段("<< s<<","<<s+1<<")和("<<j-1<<","<<j<<")处" << endl;
+                        cout << "多边形" << i << "出现线段相交冲突,位于线段(" << s << "," << s + 1 << ")和(" << j - 1 << "," << j << ")处" << endl;
                         break;
                     }
                 }
-                    
-            }
-            
-                
 
+            }
         }
     }
     else
@@ -63,7 +55,100 @@ int main()
         cout << "File not exists!" << endl;
     }
     cout << "在阈值" << threshold << "下共有" << n << "个多边形首尾不相接" << endl;
+
+}
+
+void createSHPTree(SHPHandle SHP)
+{
+
+}
+
+void checkDefData(DBFHandle DBF)
+{
+    int nRecords = DBF->nRecords;
+    char* s = new char[15];
+    int* pnWidth = new int;
+    int* pnDecimals = new int;
+    char* pStringAtt = new char[100];
+    for (int i = 0; i < DBFGetFieldCount(DBF); i++)
+    {
+        int f = DBFGetFieldInfo(DBF, i, s, pnWidth, pnDecimals);
+        cout << f << endl;
+
+        cout << "s:" << s << endl;
+        cout << "pnWidth: " << *pnWidth << endl;
+        cout << "pnDecimals:" << *pnDecimals << endl;
+        
+        switch (f)
+        {
+            case 0:
+            
+                for (int j = 0; j < nRecords; j++)
+                {
+                    strcpy_s(pStringAtt, 100, DBFReadStringAttribute(DBF, j, f));
+                    cout << "StringAttribute:" << DBFReadStringAttribute(DBF, j, f) << endl;
+                }
+            
+                break;
+            case 1:
+                int pIntAtt;
+                for (int j = 0; j < nRecords; j++)
+                {
+                    pIntAtt = DBFReadIntegerAttribute(DBF, j, f);
+                    cout << "IntAttribute:" << pIntAtt<<endl;
+                }
+                break;
+            case 2:
+                double pDoubleAtt;
+                for (int j = 0; j < nRecords; j++)
+                {
+                    pDoubleAtt = DBFReadDoubleAttribute(DBF, j, f);
+                    cout << "DoubleAttribute:" << pDoubleAtt << endl;
+                }
+                break;
+            default:
+                break;
+        }
+
+    }
+    delete[]pStringAtt;
+    pStringAtt = NULL;
+    delete []s, pnWidth, pnDecimals;
+    s = NULL;
+    pnWidth = NULL;
+    pnDecimals = NULL;
+
+}
+
+int main()
+{
+    _SHAPEFILE_H_INCLUDED::SHPHandle SHP = SHPOpen(".\\data\\2021testdata","rb");
+    DBFHandle DBF = DBFOpen(".\\data\\2021testdata", "rb");
+    //cout.precision(12);
+    double threshold = 5.0;
+    bool flag = true;
+    while (flag)
+    {
+        cout << "等待用户输入，输入0退出，输入1进行数据拓扑检查，输入2进行属性数据检查" << endl;
+        int i{};
+        cin >> i;
+        switch (i)
+        {
+        case 0:
+            flag = false;
+            break;
+        case 1:
+            checkGeoData(SHP, threshold);
+            break;
+        case 2:
+            checkDefData(DBF);
+            break;
+        default:
+            break;
+        }
+    }
     SHPClose(SHP);
+    DBFClose(DBF);
 }
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
