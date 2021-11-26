@@ -21,7 +21,7 @@ inline bool cross(double x1, double y1, double x2, double y2, double x3, double 
 
 void checkGeoData(SHPHandle SHP, double threshold) {
     int n = 0;
-
+    int nSHP = 0;
     if (SHP)
     {
         int nRecord = SHP->nRecords;
@@ -36,9 +36,10 @@ void checkGeoData(SHPHandle SHP, double threshold) {
                 cout << i << "首尾不相接" << endl;
                 n++;
             }
-
+            bool flag = false;
             for (int j = 0; j < nVertices; j++)
             {
+                
                 if (j <= 2)
                     continue;
                 for (int s = 0; s < j - 1; s++) {
@@ -47,11 +48,16 @@ void checkGeoData(SHPHandle SHP, double threshold) {
                     if (cross(obj->padfX[s], obj->padfY[s], obj->padfX[s + 1], obj->padfY[s + 1], obj->padfX[j], obj->padfY[j], obj->padfX[j - 1], obj->padfY[j - 1]))
                     {
                         cout << "多边形" << i << "出现线段相交冲突,位于线段(" << s << "," << s + 1 << ")和(" << j - 1 << "," << j << ")处" << endl;
+                        flag = true;
                         break;
                     }
                 }
 
+                
+
             }
+            if (flag)
+                nSHP++;
         }
         obj = NULL;
     }
@@ -60,7 +66,7 @@ void checkGeoData(SHPHandle SHP, double threshold) {
         cout << "File not exists!" << endl;
     }
     cout << "在阈值" << threshold << "下共有" << n << "个多边形首尾不相接" << endl;
-
+    cout <<  "共有" << nSHP << "个多边形发生自相交冲突" << endl;
 }
 
 //如果检测结果不合格,返回false
@@ -113,6 +119,7 @@ bool polygonCheck(const SHPObject* obj1, const SHPObject* obj2)
 
 void checkPolygonIntersect(SHPHandle SHP, DBFHandle DBF)
 {
+    int n = 0;
     if (SHP && DBF)
     {
         int nRecord = SHP->nRecords;
@@ -147,6 +154,7 @@ void checkPolygonIntersect(SHPHandle SHP, DBFHandle DBF)
                     if (!polygonCheck(SHPReadObject(SHP,num),obj))
                     {
                         cout << "多边形"<< i <<"与"<<num <<"同类型且相互靠近！" << endl;
+                        n++;
                     }
                 }
 
@@ -156,6 +164,7 @@ void checkPolygonIntersect(SHPHandle SHP, DBFHandle DBF)
         }
         delete[]pStringAtt;
     }
+    cout << "共有" << n << "个多边形同属性且相邻，应当被合并。" << endl;
 }
 
 void checkDefData(DBFHandle DBF)
@@ -220,7 +229,7 @@ int main()
     _SHAPEFILE_H_INCLUDED::SHPHandle SHP = SHPOpen(".\\data\\2021testdata","rb");
     DBFHandle DBF = DBFOpen(".\\data\\2021testdata", "rb");
     //cout.precision(12);
-    double threshold = 5.0;
+    double threshold = 1.0;
     bool flag = true;
     while (flag)
     {
