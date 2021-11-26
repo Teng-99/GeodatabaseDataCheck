@@ -5,14 +5,16 @@
 #include<fstream>
 #include<string.h>
 #include"SHAPEFIL.h"
+#include<map>
+#include<vector>
 using namespace std;
-//快速排斥实验
-bool IsIntersec(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
+//快速排斥实验,true 为不相邻
+inline bool IsIntersec(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
 {
     return max(x1, x2) < min(x3, x4) || max(x3, x4) < min(x1, x2) || max(y1, y2) < min(y3, y4) || max(y3, y4) < min(y1, y2);
 }
-//跨立实验
-bool cross(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
+//跨立实验，true为相交
+inline bool cross(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4)
 {
     return ((x1 - x3) * (y4 - y3) - (y1 - y3) * (x3 - x4)) * ((x2 - x3) * (y4 - y3) - (y2 - y3) * (x4 - x3)) < 0 && ((x3 - x1) * (y2 - y1) - (y3 - y1) * (x2 - x1)) * ((x4 - x1) * (y2 - y1) - (y4 - y1) * (x2 - x1)) < 0;
 }
@@ -23,9 +25,11 @@ void checkGeoData(SHPHandle SHP, double threshold) {
     if (SHP)
     {
         int nRecord = SHP->nRecords;
+        SHPObject* obj;
         for (int i = 0; i < nRecord; i++)
         {
-            SHPObject* obj = SHPReadObject(SHP, i);
+            
+            obj=SHPReadObject(SHP, i);
             int nVertices = obj->nVertices;
             if ((obj->padfX[0] - obj->padfX[nVertices - 1]) > threshold || (obj->padfY[0] - obj->padfY[nVertices - 1]))
             {
@@ -49,6 +53,7 @@ void checkGeoData(SHPHandle SHP, double threshold) {
 
             }
         }
+        obj = NULL;
     }
     else
     {
@@ -58,9 +63,99 @@ void checkGeoData(SHPHandle SHP, double threshold) {
 
 }
 
-void createSHPTree(SHPHandle SHP)
+//如果检测结果不合格,返回false
+bool polygonCheck(const SHPObject* obj1, const SHPObject* obj2)
 {
+    int nVertices1 = 0;
+    int nVertices2 = 0;
+    nVertices1 = obj1->nVertices;
+    nVertices2 = obj2->nVertices;
+    double x1, x2, x3, x4, y1, y2, y3, y4;
+    for (int i = 0; i < nVertices1; i++)
+    {
+        x1 = obj1->padfX[i];
+        y1 = obj1->padfY[i];
+        if (i == nVertices1 - 1)
+        {
+            x2 = obj1->padfX[0];
+            y2 = obj1->padfY[0];
+        }
+        else {
+            x2 = obj1->padfX[i + 1];
+            y2 = obj1->padfY[i + 1];
+        }  
+        for (int j = 0; j < nVertices2; j++)
+        {
+            x3 = obj2->padfX[j];
+            y3 = obj2->padfY[j];
 
+            if (j == nVertices2 - 1)
+            {
+                x4 = obj2->padfX[0];
+                y4 = obj2->padfY[0];
+            }
+            else {
+                x4 = obj2->padfX[j + 1];
+                y4 = obj2->padfY[j + 1];
+            }
+
+            if (IsIntersec(x1, y1, x2, y2, x3, y3, x4, y4))
+                continue;
+            if (cross(x1, y1, x2, y2, x3, y3, x4, y4))
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+void checkPolygonIntersect(SHPHandle SHP, DBFHandle DBF)
+{
+    if (SHP && DBF)
+    {
+        int nRecord = SHP->nRecords;
+        SHPObject* obj;
+        char* pStringAtt = new char[10];
+        
+        map<string, vector<int>> polygon;
+
+        map<string, vector<int>>::iterator it;
+        map<string, vector<int>>::iterator itEnd;
+        string str;
+        for (int i = 0; i < nRecord; i++)
+        {
+            obj = SHPReadObject(SHP, i);
+            strcpy_s(pStringAtt, 10, DBFReadStringAttribute(DBF, i, FTString));
+            
+            str = pStringAtt;
+            it = polygon.find(pStringAtt);
+            if (it == polygon.end())
+            {
+                vector<int>shps;
+                shps.clear();
+                shps.push_back(i);
+                polygon.insert(map<string, vector<int>>::value_type(str, shps));
+            }
+            else
+            {
+                //遍历检查数据完整性
+                for (int j = 0; j < polygon[pStringAtt].size(); j++)
+                {
+                    int num = polygon[pStringAtt][j];
+                    if (!polygonCheck(SHPReadObject(SHP,num),obj))
+                    {
+                        cout << "多边形"<< i <<"与"<<num <<"同类型且相互靠近！" << endl;
+                    }
+                }
+
+
+                polygon[pStringAtt].push_back(i);
+            }
+        }
+        delete[]pStringAtt;
+    }
 }
 
 void checkDefData(DBFHandle DBF)
@@ -72,7 +167,7 @@ void checkDefData(DBFHandle DBF)
     char* pStringAtt = new char[100];
     for (int i = 0; i < DBFGetFieldCount(DBF); i++)
     {
-        int f = DBFGetFieldInfo(DBF, i, s, pnWidth, pnDecimals);
+        DBFFieldType f = DBFGetFieldInfo(DBF, i, s, pnWidth, pnDecimals);
         cout << f << endl;
 
         cout << "s:" << s << endl;
@@ -81,16 +176,16 @@ void checkDefData(DBFHandle DBF)
         
         switch (f)
         {
-            case 0:
+            case FTString:
             
                 for (int j = 0; j < nRecords; j++)
                 {
                     strcpy_s(pStringAtt, 100, DBFReadStringAttribute(DBF, j, f));
-                    cout << "StringAttribute:" << DBFReadStringAttribute(DBF, j, f) << endl;
+                    cout << j <<"StringAttribute:" << DBFReadStringAttribute(DBF, j, f) << endl;
                 }
             
                 break;
-            case 1:
+            case FTInteger:
                 int pIntAtt;
                 for (int j = 0; j < nRecords; j++)
                 {
@@ -98,7 +193,7 @@ void checkDefData(DBFHandle DBF)
                     cout << "IntAttribute:" << pIntAtt<<endl;
                 }
                 break;
-            case 2:
+            case FTDouble:
                 double pDoubleAtt;
                 for (int j = 0; j < nRecords; j++)
                 {
@@ -111,9 +206,9 @@ void checkDefData(DBFHandle DBF)
         }
 
     }
-    delete[]pStringAtt;
+    delete[]pStringAtt,s;
     pStringAtt = NULL;
-    delete []s, pnWidth, pnDecimals;
+    delete  pnWidth, pnDecimals;
     s = NULL;
     pnWidth = NULL;
     pnDecimals = NULL;
@@ -129,7 +224,7 @@ int main()
     bool flag = true;
     while (flag)
     {
-        cout << "等待用户输入，输入0退出，输入1进行数据拓扑检查，输入2进行属性数据检查" << endl;
+        cout << "等待用户输入，输入0退出，输入1进行数据拓扑检查，输入2进行属性数据打印，输入3进行同属性多边形相交检查。" << endl;
         int i{};
         cin >> i;
         switch (i)
@@ -142,6 +237,9 @@ int main()
             break;
         case 2:
             checkDefData(DBF);
+            break;
+        case 3:
+            checkPolygonIntersect(SHP, DBF);
             break;
         default:
             break;
