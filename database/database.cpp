@@ -22,6 +22,7 @@ inline bool cross(double x1, double y1, double x2, double y2, double x3, double 
 void checkGeoData(SHPHandle SHP, double threshold) {
     int n = 0;
     int nSHP = 0;
+    int nLines = 0;
     if (SHP)
     {
         int nRecord = SHP->nRecords;
@@ -49,6 +50,7 @@ void checkGeoData(SHPHandle SHP, double threshold) {
                     {
                         cout << "多边形" << i << "出现线段相交冲突,位于线段(" << s << "," << s + 1 << ")和(" << j - 1 << "," << j << ")处" << endl;
                         flag = true;
+                        nLines++;
                         break;
                     }
                 }
@@ -66,7 +68,7 @@ void checkGeoData(SHPHandle SHP, double threshold) {
         cout << "File not exists!" << endl;
     }
     cout << "在阈值" << threshold << "下共有" << n << "个多边形首尾不相接" << endl;
-    cout <<  "共有" << nSHP << "个多边形发生自相交冲突" << endl;
+    cout <<  "共有" << nSHP << "个多边形发生自相交冲突,共有" <<nLines <<"条线段发生自相交冲突。" << endl;
 }
 
 //如果检测结果不合格,返回false
@@ -164,7 +166,7 @@ void checkPolygonIntersect(SHPHandle SHP, DBFHandle DBF)
         }
         delete[]pStringAtt;
     }
-    cout << "共有" << n << "个多边形同属性且相邻，应当被合并或被修改。" << endl;
+    cout << "共有" << n << "个多边形同属性且相交，应当被合并或被修改。" << endl;
 }
 
 void checkDefData(DBFHandle DBF)
@@ -233,7 +235,7 @@ int main()
     bool flag = true;
     while (flag)
     {
-        cout << "等待用户输入，输入0退出，输入1进行数据拓扑检查，输入2进行属性数据打印，输入3进行同属性多边形相交检查。" << endl;
+        cout << "等待用户输入，输入0退出，输入1进行数据拓扑检查，输入2进行同属性多边形相交检查。" << endl;
         int i{};
         cin >> i;
         switch (i)
@@ -244,10 +246,10 @@ int main()
         case 1:
             checkGeoData(SHP, threshold);
             break;
-        case 2:
+        case 3:
             checkDefData(DBF);
             break;
-        case 3:
+        case 2:
             checkPolygonIntersect(SHP, DBF);
             break;
         default:
