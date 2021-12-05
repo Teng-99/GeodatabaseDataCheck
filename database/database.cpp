@@ -19,10 +19,11 @@ inline bool cross(double x1, double y1, double x2, double y2, double x3, double 
     return ((x1 - x3) * (y4 - y3) - (y1 - y3) * (x3 - x4)) * ((x2 - x3) * (y4 - y3) - (y2 - y3) * (x4 - x3)) < 0 && ((x3 - x1) * (y2 - y1) - (y3 - y1) * (x2 - x1)) * ((x4 - x1) * (y2 - y1) - (y4 - y1) * (x2 - x1)) < 0;
 }
 
-void checkGeoData(SHPHandle SHP, double threshold) {
+void checkGeoData(SHPHandle SHP, DBFHandle DBF, double threshold) {
     int n = 0;
     int nSHP = 0;
     int nLines = 0;
+    char* pStringAtt = new char[10];
     if (SHP)
     {
         int nRecord = SHP->nRecords;
@@ -32,6 +33,12 @@ void checkGeoData(SHPHandle SHP, double threshold) {
             
             obj=SHPReadObject(SHP, i);
             int nVertices = obj->nVertices;
+            strcpy_s(pStringAtt, 10, DBFReadStringAttribute(DBF, i, FTString));
+            if (strcmp(pStringAtt,"0601")==0|| strcmp(pStringAtt, "0610") == 0|| strcmp(pStringAtt, "0000") == 0)
+            {
+                continue;
+            }
+                
             if ((obj->padfX[0] - obj->padfX[nVertices - 1])+ (obj->padfY[0] - obj->padfY[nVertices - 1]) > threshold)
             {
                 cout << i << "首尾不相接" << endl;
@@ -137,7 +144,10 @@ void checkPolygonIntersect(SHPHandle SHP, DBFHandle DBF)
         {
             obj = SHPReadObject(SHP, i);
             strcpy_s(pStringAtt, 10, DBFReadStringAttribute(DBF, i, FTString));
-            
+            if (strcmp(pStringAtt, "0601") == 0 || strcmp(pStringAtt, "0610") == 0 || strcmp(pStringAtt, "0000") == 0)
+            {
+                continue;
+            }
             str = pStringAtt;
             it = polygon.find(pStringAtt);
             if (it == polygon.end())
@@ -244,7 +254,7 @@ int main()
             flag = false;
             break;
         case 1:
-            checkGeoData(SHP, threshold);
+            checkGeoData(SHP, DBF,threshold);
             break;
         case 3:
             checkDefData(DBF);
