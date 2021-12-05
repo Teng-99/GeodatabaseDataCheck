@@ -31,7 +31,7 @@ void checkGeoData(SHPHandle SHP, double threshold) {
             
             obj=SHPReadObject(SHP, i);
             int nVertices = obj->nVertices;
-            if ((obj->padfX[0] - obj->padfX[nVertices - 1]) > threshold || (obj->padfY[0] - obj->padfY[nVertices - 1]))
+            if ((obj->padfX[0] - obj->padfX[nVertices - 1])+ (obj->padfY[0] - obj->padfY[nVertices - 1]) > threshold)
             {
                 cout << i << "首尾不相接" << endl;
                 n++;
@@ -164,7 +164,7 @@ void checkPolygonIntersect(SHPHandle SHP, DBFHandle DBF)
         }
         delete[]pStringAtt;
     }
-    cout << "共有" << n << "个多边形同属性且相邻，应当被合并。" << endl;
+    cout << "共有" << n << "个多边形同属性且相邻，应当被合并或被修改。" << endl;
 }
 
 void checkDefData(DBFHandle DBF)
